@@ -118,7 +118,7 @@ class Months(object):
         self.months.add(month)
 
     def read_transaction(self, month, value):
-        if month == self.current_month:
+        if month >= self.current_month:
             return False
         self.add_key(month)
         self.total.read_transaction(month, value)

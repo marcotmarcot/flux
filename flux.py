@@ -210,7 +210,7 @@ class Application(object):
 
 def main():
     logging.basicConfig(filename="flux.log", level=logging.DEBUG)
-    app = Application("test.gnucash", "assets.txt", "flux.csv")
+    app = Application("gastos.gnucash", "assets.txt", "flux.csv")
     app.main()
 
 if __name__ == "__main__":

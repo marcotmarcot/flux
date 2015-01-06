@@ -202,7 +202,7 @@ class Application(object):
         self.table.read_transaction(account, month, value)
 
     def main(self):
-        book = gnucashxml.from_filename("test.gnucash")
+        book = gnucashxml.from_filename(self.gnucash_path)
         self.assets.read_assets()
         for transaction in book.transactions:
             self.read_transaction(transaction)

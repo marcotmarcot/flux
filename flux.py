@@ -34,6 +34,15 @@ class MonthStr(object):
     def __lt__(self, obj):
         return self.month_str.__lt__(obj.month_str)
 
+    def __le__(self, obj):
+        return self.month_str.__le__(obj.month_str)
+
+    def __gt__(self, obj):
+        return self.month_str.__gt__(obj.month_str)
+
+    def __ge__(self, obj):
+        return self.month_str.__ge__(obj.month_str)
+
     def __hash__(self):
         return self.month_str.__hash__()
 
@@ -118,8 +127,11 @@ class Months(object):
         self.months.add(month)
 
     def read_transaction(self, month, value):
-        if month >= self.current_month:
+        if month > self.current_month:
             return False
+        logging.debug(
+            "Months.read_transaction: month (" + str(month) +
+            ") < self.current_month (" + str(self.current_month) + ")")
         self.add_key(month)
         self.total.read_transaction(month, value)
         self.positive.read_transaction(month, value)
@@ -210,7 +222,7 @@ class Application(object):
 
 def main():
     logging.basicConfig(filename="flux.log", level=logging.DEBUG)
-    app = Application("gastos.gnucash", "assets.txt", "flux.csv")
+    app = Application("/home/marcots/Dropbox/pessoal/gastos/gastos.gnucash", "assets.txt", "flux.csv")
     app.main()
 
 if __name__ == "__main__":

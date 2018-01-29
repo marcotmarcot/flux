@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import gnucashxml
 import datetime
 import logging
@@ -209,7 +211,9 @@ class Application(object):
         account, i = self.get_other_account(transaction.splits)
         if account is None:
             return
-        value = transaction.splits[i].value
+        value = float(transaction.splits[i].value)
+        if transaction.currency.name == "USD":
+            value *= 3.1671
         month = MonthStr(transaction.date)
         self.table.read_transaction(account, month, value)
 
@@ -222,7 +226,7 @@ class Application(object):
 
 def main():
     logging.basicConfig(filename="flux.log", level=logging.DEBUG)
-    app = Application("/home/marcots/Dropbox/pessoal/gastos/gastos.gnucash", "assets.txt", "flux.csv")
+    app = Application("/home/marcots/gastos/gastos.gnucash", "assets.txt", "flux.csv")
     app.main()
 
 if __name__ == "__main__":

@@ -1,3 +1,2 @@
-Total:Ativo
-Total:Passivo:Atemporal
+Total
 Perdi

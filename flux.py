@@ -15,6 +15,7 @@ def account_full_name(account):
         parent = parent.parent
     return name.encode("utf-8")
 
+
 def check_splits_sanity(splits):
     if (len(splits) != 2):
         message = "check_splits_sanity ("
@@ -26,34 +27,48 @@ def check_splits_sanity(splits):
         raise Exception(message)
 
 
-class MonthStr(object):
+def start(flux, name, i, periods):
+    si = str(i)
+    par = "(D" + si + ":" + column(periods) + si + ")"
+    flux.write(name + ",=AVERAGE" + par + ",=SPARKLINE" + par)
+
+
+def column(j):
+    c = ''
+    j += 4
+    while j > 0:
+        c = chr(ord('A') - 1 + + j % 26) + c
+        j /= 26
+    return c
+
+
+class PeriodStr(object):
     def __init__(self, date):
-        self.month_str = date.strftime("%Y-%m")
+        self.period_str = date.strftime("%Y")
 
     def __eq__(self, obj):
-        return self.month_str.__eq__(obj.month_str)
+        return self.period_str.__eq__(obj.period_str)
 
     def __lt__(self, obj):
-        return self.month_str.__lt__(obj.month_str)
+        return self.period_str.__lt__(obj.period_str)
 
     def __le__(self, obj):
-        return self.month_str.__le__(obj.month_str)
+        return self.period_str.__le__(obj.period_str)
 
     def __gt__(self, obj):
-        return self.month_str.__gt__(obj.month_str)
+        return self.period_str.__gt__(obj.period_str)
 
     def __ge__(self, obj):
-        return self.month_str.__ge__(obj.month_str)
+        return self.period_str.__ge__(obj.period_str)
 
     def __hash__(self):
-        return self.month_str.__hash__()
+        return self.period_str.__hash__()
 
     def __int__(self):
-        fields = self.month_str.split('-')
-        return int(fields[0]) * 12 + int(fields[1])
+        return int(self.period_str)
 
     def __str__(self):
-        return self.month_str
+        return self.period_str
 
 
 class Assets(object):
@@ -79,104 +94,114 @@ class Assets(object):
 class Account(object):
     def __init__(self, name):
         self.name = name
-        self.months = {}
-        self.total = 0
+        self.periods = {}
 
-    def add_key(self, month):
-        if month not in self.months:
-            self.months[month] = 0
+    def add_key(self, period):
+        if period not in self.periods:
+            self.periods[period] = 0
 
-    def read_transaction(self, month, value):
-        self.add_key(month)
-        self.months[month] += value
-        self.total += value
+    def read_transaction(self, period, value):
+        self.add_key(period)
+        self.periods[period] += value
 
-    def num_months(self):
-        return int(max(self.months)) - int(min(self.months)) + 1
-
-    def print_line(self, flux, months):
-        flux.write(self.name + "," + str(self.total / self.num_months()) + ",")
-        for month in sorted(months):
-            if month in self.months:
-                value = self.months[month]
+    def print_line(self, flux, periods, i):
+        start(flux, self.name, i, len(periods))
+        for period in sorted(periods):
+            if period in self.periods:
+                value = self.periods[period]
             else:
                 value = 0
-            flux.write(str(value) + ",")
+            flux.write("," + str(value))
         flux.write("\n")
 
 
-class PositiveAccount(Account):
-    def read_transaction(self, month, value):
-        if value > 0:
-            super(PositiveAccount, self).read_transaction(month, value)
-
-
-class NegativeAccount(Account):
-    def read_transaction(self, month, value):
-        if value < 0:
-            super(NegativeAccount, self).read_transaction(month, value)
-
-
-class Months(object):
+class Periods(object):
     def __init__(self):
-        self.months = set()
-        self.total = Account("Total")
-        self.positive = PositiveAccount("Positive")
-        self.negative = NegativeAccount("Negative")
-        self.current_month = MonthStr(datetime.date.today())
+        self.periods = set()
+        self.current_period = PeriodStr(datetime.date.today())
 
-    def add_key(self, month):
-        self.months.add(month)
-
-    def read_transaction(self, month, value):
-        if month > self.current_month:
+    def add_key(self, period):
+        if period == self.current_period:
             return False
         logging.debug(
-            "Months.read_transaction: month (" + str(month) +
-            ") < self.current_month (" + str(self.current_month) + ")")
-        self.add_key(month)
-        self.total.read_transaction(month, value)
-        self.positive.read_transaction(month, value)
-        self.negative.read_transaction(month, value)
+            "Periods.add_key: period (" + str(period) +
+            ") < self.current_period (" + str(self.current_period) + ")")
+        self.periods.add(period)
         return True
 
-    def print_months(self, flux):
-        flux.write(",Average,")
-        for month in sorted(self.months):
-            flux.write(str(month) + ",")
+    def print_periods(self, flux):
+        flux.write(",Average,Line")
+        for period in sorted(self.periods):
+            flux.write("," + str(period))
         flux.write("\n")
 
-    def print_header(self, flux):
-        self.print_months(flux)
-        self.total.print_line(flux, self.months)
-        self.positive.print_line(flux, self.months)
-        self.negative.print_line(flux, self.months)
+    def print_header(self, flux, pos, neg):
+        self.print_periods(flux)
+        self.print_sum(flux, "Total", 2, 0, pos + neg)
+        self.print_sum(flux, "Positive", 3, 0, pos)
+        self.print_sum(flux, "Negative", 4, pos, pos + neg)
+
+    def print_sum(self, flux, name, i, begin, end):
+        start(flux, name, i, len(self.periods))
+        for j in range(len(self.periods)):
+            c = column(j)
+            flux.write(
+                ",=SUM(" + c + str(5 + begin) + ":" + c + str(5 + end - 1) + ")")
+        flux.write("\n")
+
+    def print_percent(self, flux, name, num, den, i):
+        start(flux, name, i, len(self.periods))
+        for j in range(len(self.periods)):
+            c = column(j)
+            flux.write(",=" + c + str(num) + " / " + c + str(den))
+        flux.write("\n")
 
 
 class Table(object):
     def __init__(self, flux_path):
         self.flux_path = flux_path
-        self.months = Months()
-        self.accounts = {}
+        self.periods = Periods()
+        self.pos = {}
+        self.neg = {}
 
-    def add_key(self, account):
-        logging.debug("Table.add_key(" + account + ")")
-        if account not in self.accounts:
-            self.accounts[account] = Account(account)
+    def add_pos(self, account):
+        logging.debug("Table.add_pos(" + account + ")")
+        if account not in self.pos:
+            self.pos[account] = Account(account)
 
-    def read_transaction(self, account, month, value):
-        if not self.months.read_transaction(month, value):
+    def add_neg(self, account):
+        logging.debug("Table.add_neg(" + account + ")")
+        if account not in self.neg:
+            self.neg[account] = Account(account)
+
+    def read_transaction(self, account, period, value):
+        if not self.periods.add_key(period):
             return
-        self.add_key(account)
-        self.accounts[account].read_transaction(month, value)
+        if value > 0:
+            self.add_pos(account)
+            self.pos[account].read_transaction(period, value)
+        if value < 0:
+            self.add_neg(account)
+            self.neg[account].read_transaction(period, value)
 
     def print_accounts(self, flux):
-        for account in sorted(self.accounts):
-            self.accounts[account].print_line(flux, self.months.months)
+        i = 5
+        for account in sorted(self.pos):
+            self.pos[account].print_line(flux, self.periods.periods, i)
+            i += 1
+        for account in sorted(self.neg):
+            self.neg[account].print_line(flux, self.periods.periods, i)
+            i += 1
+        for account in sorted(self.pos):
+            self.periods.print_percent(flux, account, i - len(self.pos) - len(self.neg), 3, i)
+            i += 1
+        for account in sorted(self.neg):
+            self.periods.print_percent(flux, account, i - len(self.pos) - len(self.neg), 4, i)
+            i += 1
 
     def print_table(self):
         with open(self.flux_path, "w") as flux:
-            self.months.print_header(flux)
+            self.periods.print_header(flux, len(self.pos), len(self.neg))
             self.print_accounts(flux)
 
 
@@ -207,15 +232,18 @@ class Application(object):
 
     def read_transaction(self, transaction):
         splits = transaction.splits
-        check_splits_sanity(transaction.splits)
-        account, i = self.get_other_account(transaction.splits)
+        check_splits_sanity(splits)
+        account, i = self.get_other_account(splits)
         if account is None:
             return
-        value = float(transaction.splits[i].value)
-        if transaction.currency.name == "USD":
+        value = float(splits[i].value) / 12.0
+        currency = transaction.currency.name
+        if currency == "USD":
             value *= 3.1671
-        month = MonthStr(transaction.date)
-        self.table.read_transaction(account, month, value)
+        elif currency == "EUR":
+            value *= 3.9195
+        period = PeriodStr(transaction.date)
+        self.table.read_transaction(account, period, value)
 
     def main(self):
         book = gnucashxml.from_filename(self.gnucash_path)

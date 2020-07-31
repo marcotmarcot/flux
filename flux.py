@@ -44,7 +44,7 @@ def column(j):
 
 class PeriodStr(object):
     def __init__(self, date):
-        self.period_str = date.strftime("%Y")
+        self.period_str = date.strftime("%Y-%m")
 
     def __eq__(self, obj):
         return self.period_str.__eq__(obj.period_str)
